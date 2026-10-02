@@ -1,128 +1,69 @@
-import "./styles.css";
+import { useState } from "react";
+import { StoreProvider } from "./store";
+import Overview from "./components/overview";
+import Batches from "./components/batches";
+import Slots from "./components/slots";
+import Orders from "./components/orders";
+import Curves from "./components/curves";
+import Conflicts from "./components/conflicts";
+import Versions from "./components/versions";
 
-const project = {
-  "sourceNo": 7,
-  "id": "hxyfront-62012",
-  "port": 62012,
-  "title": "纺织染整小样管理",
-  "domain": "纺织染整",
-  "prompt": "我需要一个纺织染整实验室的小样管理前端系统，可以记录面料成分、克重、染料配方、浴比、温度曲线、保温时间、后整理方式、色差值和评审结果。页面需要有小样批次列表、配方比例展示、Lab色差对比、工艺曲线摘要和按客户订单筛选。",
-  "palette": [
-    "#be123c",
-    "#4f46e5",
-    "#16a34a"
-  ],
-  "metrics": [
-    "小样批次",
-    "色差超限",
-    "客户订单",
-    "通过率"
-  ],
-  "filters": [
-    "棉",
-    "涤纶",
-    "锦纶",
-    "混纺"
-  ],
-  "fields": [
-    "面料成分",
-    "克重",
-    "染料配方",
-    "浴比",
-    "保温时间",
-    "色差值"
-  ],
-  "records": [
-    [
-      "LAB-620A",
-      "棉府绸120g",
-      "ΔE 0.84",
-      "评审通过"
-    ],
-    [
-      "LAB-621C",
-      "涤纶针织",
-      "升温曲线偏快",
-      "待复染"
-    ],
-    [
-      "LAB-624B",
-      "混纺斜纹",
-      "后整理柔软剂2%",
-      "客户确认中"
-    ]
-  ]
-};
+const tabs = [
+  { key: "overview", label: "总览" },
+  { key: "batches", label: "批次" },
+  { key: "slots", label: "染缸槽位" },
+  { key: "orders", label: "客户订单" },
+  { key: "curves", label: "工艺曲线" },
+  { key: "versions", label: "版本变更" },
+  { key: "conflicts", label: "母液/冲突" },
+] as const;
 
-function App() {
+type TabKey = (typeof tabs)[number]["key"];
+
+function Shell() {
+  const [tab, setTab] = useState<TabKey>("overview");
+
   return (
     <main className="app">
       <section className="hero">
-        <p>{project.id} · 源提示词{project.sourceNo} · Port {project.port}</p>
-        <h1>{project.title}</h1>
-        <span>{project.prompt}</span>
+        <p>hxyfront-62012 · 离线作业台</p>
+        <h1>染整离线作业台</h1>
+        <span>
+          开工前按坯布重量、浴比与槽位余量分配母液，不足或重叠留待排并写明冲突；
+          两名技术员同时提交同一槽位先到者占用、后到留冲突草稿；配方/后整理/复修原因一变，
+          依附旧版的色差结论与评审立即失效重算，已签订单保留当时依据；断网录入工艺曲线、
+          联网合并，同号重放只认首次，字段两边都改过保留双方；旧批次缺母液编号升级，
+          迁移失败恢复最近草稿。
+        </span>
       </section>
 
-      <section className="metrics">
-        {project.metrics.map((metric: string, index: number) => (
-          <article key={metric}>
-            <small>{metric}</small>
-            <strong>{[28, 6, 14, 91][index] ?? 10}</strong>
-          </article>
+      <nav className="tabbar">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            className={tab === t.key ? "active" : ""}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+          </button>
         ))}
-      </section>
+      </nav>
 
-      <section className="workspace">
-        <aside className="panel">
-          <h2>{project.domain}分类</h2>
-          <div className="chips">
-            {project.filters.map((item: string) => (
-              <button key={item}>{item}</button>
-            ))}
-          </div>
-        </aside>
-
-        <section className="panel form-panel">
-          <div className="heading">
-            <div>
-              <p>专业字段</p>
-              <h2>新增记录</h2>
-            </div>
-            <button className="primary">保存记录</button>
-          </div>
-          <div className="field-grid">
-            {project.fields.map((field: string) => (
-              <label key={field}>
-                <span>{field}</span>
-                <input placeholder={"填写" + field} />
-              </label>
-            ))}
-          </div>
-        </section>
-      </section>
-
-      <section className="panel">
-        <div className="heading">
-          <div>
-            <p>近期记录</p>
-            <h2>工作台摘要</h2>
-          </div>
-          <button>导出CSV</button>
-        </div>
-        <div className="records">
-          {project.records.map((record: string[], index: number) => (
-            <article key={record.join("-")}>
-              <b>{String(index + 1).padStart(2, "0")}</b>
-              <div>
-                <h3>{record[0]}</h3>
-                <p>{record.slice(1).join(" · ")}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      {tab === "overview" && <Overview />}
+      {tab === "batches" && <Batches />}
+      {tab === "slots" && <Slots />}
+      {tab === "orders" && <Orders />}
+      {tab === "curves" && <Curves />}
+      {tab === "versions" && <Versions />}
+      {tab === "conflicts" && <Conflicts />}
     </main>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <StoreProvider>
+      <Shell />
+    </StoreProvider>
+  );
+}
