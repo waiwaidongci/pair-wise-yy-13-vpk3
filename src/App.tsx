@@ -1,128 +1,104 @@
+import { useState } from "react";
 import "./styles.css";
+import { StoreProvider, useStore } from "./store";
+import { BatchesPanel, SubmitForm } from "./panels/Batches";
+import { LiquorPanel, SlotsPanel } from "./panels/Inventory";
+import { OrdersPanel } from "./panels/Orders";
+import { CurvesPanel } from "./panels/Curves";
+import { MigrationPanel } from "./panels/Migration";
 
-const project = {
-  "sourceNo": 7,
-  "id": "hxyfront-62012",
-  "port": 62012,
-  "title": "纺织染整小样管理",
-  "domain": "纺织染整",
-  "prompt": "我需要一个纺织染整实验室的小样管理前端系统，可以记录面料成分、克重、染料配方、浴比、温度曲线、保温时间、后整理方式、色差值和评审结果。页面需要有小样批次列表、配方比例展示、Lab色差对比、工艺曲线摘要和按客户订单筛选。",
-  "palette": [
-    "#be123c",
-    "#4f46e5",
-    "#16a34a"
-  ],
-  "metrics": [
-    "小样批次",
-    "色差超限",
-    "客户订单",
-    "通过率"
-  ],
-  "filters": [
-    "棉",
-    "涤纶",
-    "锦纶",
-    "混纺"
-  ],
-  "fields": [
-    "面料成分",
-    "克重",
-    "染料配方",
-    "浴比",
-    "保温时间",
-    "色差值"
-  ],
-  "records": [
-    [
-      "LAB-620A",
-      "棉府绸120g",
-      "ΔE 0.84",
-      "评审通过"
-    ],
-    [
-      "LAB-621C",
-      "涤纶针织",
-      "升温曲线偏快",
-      "待复染"
-    ],
-    [
-      "LAB-624B",
-      "混纺斜纹",
-      "后整理柔软剂2%",
-      "客户确认中"
-    ]
-  ]
-};
+const TABS = [
+  { id: "batches", label: "批次开工" },
+  { id: "liquor", label: "母液台账" },
+  { id: "slots", label: "染缸槽位" },
+  { id: "orders", label: "客户订单" },
+  { id: "curves", label: "离线曲线" },
+  { id: "migration", label: "旧批升级" },
+] as const;
 
-function App() {
+type TabId = (typeof TABS)[number]["id"];
+
+function Shell() {
+  const { state, dispatch } = useStore();
+  const [tab, setTab] = useState<TabId>("batches");
+  const draftCount = state.batches.filter((b) => b.status === "draft").length;
+  const conflictCount = state.batches.reduce((n, b) => n + b.conflicts.length, 0);
+
   return (
     <main className="app">
-      <section className="hero">
-        <p>{project.id} · 源提示词{project.sourceNo} · Port {project.port}</p>
-        <h1>{project.title}</h1>
-        <span>{project.prompt}</span>
-      </section>
+      <header className="topbar">
+        <div className="brand">
+          <h1>染整离线作业台</h1>
+          <p>复染批次 · 染缸槽位 · 客户订单 三本账 ｜ 先排产后开工 ｜ 依据改版结论即失效 ｜ 断网可录联网合并</p>
+        </div>
+        <div className="net">
+          <span className={`dot ${state.online ? "on" : "off"}`} />
+          {state.online ? "联网" : `断网 · 待并 ${state.pendingOps.length}`}
+          <button
+            onClick={() => {
+              dispatch({ type: "SET_NET", online: !state.online });
+              if (!state.online) dispatch({ type: "FLUSH" });
+            }}
+          >
+            {state.online ? "断网" : "联网并合并"}
+          </button>
+          <button
+            className="reset"
+            onClick={() => {
+              if (confirm("恢复到演示初始数据？")) {
+                localStorage.removeItem("dye-bench-state-v1");
+                dispatch({ type: "RESET" });
+              }
+            }}
+          >
+            重置
+          </button>
+        </div>
+      </header>
 
       <section className="metrics">
-        {project.metrics.map((metric: string, index: number) => (
-          <article key={metric}>
-            <small>{metric}</small>
-            <strong>{[28, 6, 14, 91][index] ?? 10}</strong>
-          </article>
+        <div className="metric"><small>在缸批次</small><strong>{state.batches.filter((b) => b.status !== "draft").length}</strong></div>
+        <div className="metric"><small>待排草稿</small><strong className={draftCount ? "warn" : ""}>{draftCount}</strong></div>
+        <div className="metric"><small>未决冲突</small><strong className={conflictCount ? "warn" : ""}>{conflictCount}</strong></div>
+        <div className="metric"><small>客户订单</small><strong>{state.orders.length}</strong></div>
+        <div className="metric"><small>已签订单</small><strong>{state.orders.filter((o) => o.signedAt).length}</strong></div>
+      </section>
+
+      <nav className="tabs">
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => setTab(t.id)}>
+            {t.label}
+            {t.id === "batches" && draftCount > 0 && <span className="tab-dot">{draftCount}</span>}
+          </button>
         ))}
+      </nav>
+
+      <section className="content">
+        {tab === "batches" && (
+          <>
+            <SubmitForm />
+            <BatchesPanel />
+          </>
+        )}
+        {tab === "liquor" && <LiquorPanel />}
+        {tab === "slots" && <SlotsPanel />}
+        {tab === "orders" && <OrdersPanel />}
+        {tab === "curves" && <CurvesPanel />}
+        {tab === "migration" && <MigrationPanel />}
       </section>
 
-      <section className="workspace">
-        <aside className="panel">
-          <h2>{project.domain}分类</h2>
-          <div className="chips">
-            {project.filters.map((item: string) => (
-              <button key={item}>{item}</button>
-            ))}
-          </div>
-        </aside>
-
-        <section className="panel form-panel">
-          <div className="heading">
-            <div>
-              <p>专业字段</p>
-              <h2>新增记录</h2>
-            </div>
-            <button className="primary">保存记录</button>
-          </div>
-          <div className="field-grid">
-            {project.fields.map((field: string) => (
-              <label key={field}>
-                <span>{field}</span>
-                <input placeholder={"填写" + field} />
-              </label>
-            ))}
-          </div>
-        </section>
-      </section>
-
-      <section className="panel">
-        <div className="heading">
-          <div>
-            <p>近期记录</p>
-            <h2>工作台摘要</h2>
-          </div>
-          <button>导出CSV</button>
-        </div>
-        <div className="records">
-          {project.records.map((record: string[], index: number) => (
-            <article key={record.join("-")}>
-              <b>{String(index + 1).padStart(2, "0")}</b>
-              <div>
-                <h3>{record[0]}</h3>
-                <p>{record.slice(1).join(" · ")}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
+      <footer className="foot">
+        规则引擎为纯函数（src/engine.ts），36 项断言覆盖：母液分配/不足留冲突、槽位先到先占、
+        依据改版结论失效与订单冻结、同号重放去重/双改留双方、母液编号升级失败回滚。
+      </footer>
     </main>
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <StoreProvider>
+      <Shell />
+    </StoreProvider>
+  );
+}
